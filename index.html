@@ -25,18 +25,23 @@
     .leaflet-control-attribution a { color:var(--cyan) !important; }
 
     /* Encabezado con el muñeco */
-    #header { position:fixed; top:12px; left:12px; right:120px; z-index:1000; display:flex; align-items:center; gap:10px;
+    /* Barra superior: encabezado + Recentrar en fila, sin superponerse */
+    #topbar { position:fixed; top:calc(10px + env(safe-area-inset-top)); left:10px; right:10px; z-index:1000;
+      display:flex; align-items:center; gap:8px; }
+    #header { flex:1 1 auto; min-width:0; display:flex; align-items:center; gap:10px;
       background:var(--panel); border:1px solid #3fd3ff55; border-radius:16px; padding:8px 10px;
       backdrop-filter:blur(8px); box-shadow:0 6px 24px #1f3cff33; }
     #avatar { width:44px; height:44px; border-radius:50%; object-fit:cover; background:var(--bg);
       border:2px solid var(--cyan); box-shadow:0 0 12px #3fd3ff88; flex:0 0 auto; }
-    #brand { font-size:11px; font-weight:800; letter-spacing:.22em; color:var(--cyan); text-transform:uppercase; }
-    #subtitle { font-size:14px; margin-top:2px; font-variant-numeric:tabular-nums; }
+    #header > div { min-width:0; }
+    #brand { font-size:11px; font-weight:800; letter-spacing:.18em; color:var(--cyan); text-transform:uppercase; white-space:nowrap; }
+    #subtitle { font-size:14px; margin-top:2px; font-variant-numeric:tabular-nums;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
     /* Recentrar */
-    #recenter { position:fixed; top:12px; right:12px; z-index:1000; width:auto; padding:12px 14px; border-radius:999px;
-      background:var(--panel); color:var(--cyan); border:1px solid #3fd3ff55; font-size:11px; letter-spacing:.16em;
-      text-transform:uppercase; box-shadow:none; }
+    #recenter { flex:0 0 auto; width:auto; padding:12px; border-radius:999px;
+      background:var(--panel); color:var(--cyan); border:1px solid #3fd3ff55; font-size:10px; letter-spacing:.12em;
+      text-transform:uppercase; box-shadow:none; backdrop-filter:blur(8px); }
 
     /* Panel inferior */
     #panel { position:fixed; left:0; right:0; bottom:var(--gap-bottom); z-index:1000; padding:16px;
@@ -82,15 +87,16 @@
 <body>
   <div id="map"></div>
 
-  <div id="header">
-    <img id="avatar" src="assets/muneco.png" alt="">
-    <div>
-      <div id="brand">E-Guinzburg</div>
-      <div id="subtitle">Conectando…</div>
+  <div id="topbar">
+    <div id="header">
+      <img id="avatar" src="assets/avatar.png" alt="">
+      <div>
+        <div id="brand">E-Guinzburg</div>
+        <div id="subtitle">Conectando…</div>
+      </div>
     </div>
+    <button id="recenter" disabled>Recentrar</button>
   </div>
-
-  <button id="recenter" disabled>Recentrar</button>
 
   <div id="panel">
     <p id="status">Avisá que liberás un lugar, o tocá un pin para ir a buscarlo.</p>
