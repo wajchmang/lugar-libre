@@ -3,77 +3,103 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Lugar libre · beta</title>
+  <title>E-Guinzburg · lugar libre</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;800&display=swap">
   <style>
-    /* Opción A · Radar nocturno (E-GUINZBURG) */
-    :root { --bg:#05070d; --fg:#f2f5ff; --muted:#8a93a6; --accent:#1f3cff; --cyan:#3fd3ff; --panel:#0a0f1ae6; }
-    html, body { font-family: "Montserrat", system-ui, sans-serif; }
-    /* Dejar espacio para el badge de Netlify (quitar --gap-bottom cuando haya dominio propio) */
-    :root { --gap-bottom: 72px; }
-    #panel { bottom: var(--gap-bottom); background: var(--panel); backdrop-filter: blur(8px); border-top: 1px solid #3fd3ff55; box-shadow: 0 -8px 30px #1f3cff33; }
-    #status { letter-spacing: .02em; }
-    #status strong { font-variant-numeric: tabular-nums; color: var(--cyan); font-weight: 800; }
-    .leaflet-container { background: #05070d; }
-    .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(.6) contrast(1.15) sepia(.6) hue-rotate(170deg) saturate(2); }
+    /* Estética E-GUINZBURG · radar nocturno */
+    :root {
+      --bg:#05070d; --fg:#f2f5ff; --muted:#8a93a6;
+      --accent:#1f3cff; --cyan:#3fd3ff; --panel:#0a0f1ae6;
+      /* Espacio para el badge de Netlify. Poner 0 cuando haya dominio propio. */
+      --gap-bottom:72px;
+    }
     * { box-sizing: border-box; }
-    html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg);
-      font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
-    #map { position: fixed; inset: 0; }
-    #panel { position: fixed; left: 0; right: 0; bottom: var(--gap-bottom); z-index: 1000; padding: 16px;
-      background: var(--bg); border-radius: 16px 16px 0 0; box-shadow: 0 -4px 16px #0003; }
-    #status { margin: 0 0 12px; font-size: 15px; color: var(--muted); }
-    #status strong { color: var(--fg); }
-    .actions { display: grid; gap: 8px; }
-    button { font: inherit; font-weight: 600; letter-spacing: .04em; width: 100%; padding: 13px 16px; border: 0;
-      border-radius: 12px; background: var(--accent); color: #fff; cursor: pointer;
-      box-shadow: 0 0 0 1px #3fd3ff40, 0 6px 20px #1f3cff55; }
-    button.secondary { box-shadow: none; }
-    button.secondary { background: transparent; color: var(--fg); border: 1px solid #8886; }
     [hidden] { display: none !important; }
-    button:disabled { opacity: .5; cursor: default; }
-    #overlay { position: fixed; inset: 0; z-index: 2000; background: #0008; display: none;
-      align-items: center; justify-content: center; padding: 16px; }
-    #overlay.show { display: flex; }
-    #overlay .card { background: var(--bg); color: var(--fg); padding: 20px; border-radius: 14px;
-      max-width: 340px; width: 100%; display: grid; gap: 14px; }
-    .lbl { background: #05070dcc; color: var(--cyan); font-size: 11px; font-weight: 800; letter-spacing: .12em;
-      text-transform: uppercase; padding: 5px 10px; border-radius: 999px; white-space: nowrap;
-      border: 1px solid var(--cyan); box-shadow: 0 0 12px #3fd3ff66; transform: translate(-50%, -140%); }
+    html, body { margin:0; height:100%; background:var(--bg); color:var(--fg);
+      font-family:"Montserrat", system-ui, sans-serif; overflow:hidden; }
+    #map { position:fixed; inset:0; background:var(--bg); }
+    .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(.6) contrast(1.15) sepia(.6) hue-rotate(170deg) saturate(2); }
+    .leaflet-control-attribution { background:#05070dcc !important; color:var(--muted) !important; font-size:10px; }
+    .leaflet-control-attribution a { color:var(--cyan) !important; }
+
+    /* Encabezado con el muñeco */
+    #header { position:fixed; top:12px; left:12px; right:120px; z-index:1000; display:flex; align-items:center; gap:10px;
+      background:var(--panel); border:1px solid #3fd3ff55; border-radius:16px; padding:8px 10px;
+      backdrop-filter:blur(8px); box-shadow:0 6px 24px #1f3cff33; }
+    #avatar { width:44px; height:44px; border-radius:50%; object-fit:cover; background:var(--bg);
+      border:2px solid var(--cyan); box-shadow:0 0 12px #3fd3ff88; flex:0 0 auto; }
+    #brand { font-size:11px; font-weight:800; letter-spacing:.22em; color:var(--cyan); text-transform:uppercase; }
+    #subtitle { font-size:14px; margin-top:2px; font-variant-numeric:tabular-nums; }
+
+    /* Recentrar */
+    #recenter { position:fixed; top:12px; right:12px; z-index:1000; width:auto; padding:12px 14px; border-radius:999px;
+      background:var(--panel); color:var(--cyan); border:1px solid #3fd3ff55; font-size:11px; letter-spacing:.16em;
+      text-transform:uppercase; box-shadow:none; }
+
+    /* Panel inferior */
+    #panel { position:fixed; left:0; right:0; bottom:var(--gap-bottom); z-index:1000; padding:16px;
+      background:var(--panel); backdrop-filter:blur(8px); border-top:1px solid #3fd3ff55;
+      border-radius:18px 18px 0 0; box-shadow:0 -8px 30px #1f3cff33; }
+    #status { margin:0 0 12px; font-size:13px; color:var(--muted); text-align:center; letter-spacing:.02em; min-height:1.2em; }
+    .actions { display:grid; gap:8px; }
+    button { font:inherit; font-weight:600; letter-spacing:.04em; width:100%; padding:13px 16px; border:0; border-radius:12px;
+      background:var(--accent); color:#fff; cursor:pointer; box-shadow:0 0 0 1px #3fd3ff40, 0 6px 20px #1f3cff55; }
+    button.secondary { background:transparent; color:var(--fg); border:1px solid #3fd3ff55; box-shadow:none; }
+    button:disabled { opacity:.5; cursor:default; }
+    input#code { font:inherit; padding:12px; border-radius:12px; border:1px solid #3fd3ff55; background:transparent;
+      color:var(--fg); text-transform:uppercase; }
+
+    /* Overlay de avisos */
+    #overlay { position:fixed; inset:0; z-index:2000; background:#000a; display:none; align-items:center; justify-content:center; padding:16px; }
+    #overlay.show { display:flex; }
+    #overlay .card { background:var(--panel); border:1px solid #3fd3ff55; color:var(--fg); padding:20px; border-radius:16px;
+      max-width:340px; width:100%; display:grid; gap:14px; }
+
+    /* Marcadores */
     .ring-pulse { animation: ringPulse 2.4s ease-out infinite; }
-    /* Muñeco del punto de encuentro, girando */
-    .meet { position: absolute; transform: translate(-50%, -100%); width: 90px; text-align: center; }
-    .meet img { width: 64px; height: auto; display: block; margin: 0 auto; transform-origin: center;
+    @keyframes ringPulse {
+      0% { stroke-opacity:.9; stroke-width:2; }
+      100% { stroke-opacity:0; stroke-width:6; }
+    }
+    .meet { position:absolute; transform:translate(-50%, -100%); width:90px; text-align:center; }
+    .meet img { width:64px; height:auto; display:block; margin:0 auto; transform-origin:center;
       animation: spinY 3s linear infinite; filter: drop-shadow(0 0 8px #3fd3ff88); }
-    .meet .lbl { transform: none; margin-top: 4px; display: inline-block; }
     @keyframes spinY {
       from { transform: perspective(400px) rotateY(0deg); }
       to   { transform: perspective(400px) rotateY(360deg); }
     }
-    @keyframes ringPulse {
-      0% { stroke-opacity: .9; stroke-width: 2; }
-      100% { stroke-opacity: 0; stroke-width: 6; }
-    }
-    .leaflet-popup-content-wrapper { background: var(--panel); color: var(--fg); border: 1px solid #3fd3ff55; border-radius: 12px; }
-    .leaflet-popup-tip { background: var(--panel); }
-    .lbl .cd { font-variant-numeric: tabular-nums; }
-    .leaflet-popup-content button { width: auto; padding: 8px 12px; }
+    .lbl { display:inline-block; margin-top:4px; background:#05070dcc; color:var(--cyan); font-size:11px; font-weight:800;
+      letter-spacing:.12em; text-transform:uppercase; padding:5px 10px; border-radius:999px; white-space:nowrap;
+      border:1px solid var(--cyan); box-shadow:0 0 12px #3fd3ff66; }
+    .lbl .cd { font-variant-numeric:tabular-nums; }
+    .leaflet-popup-content-wrapper { background:var(--panel); color:var(--fg); border:1px solid #3fd3ff55; border-radius:12px; }
+    .leaflet-popup-tip { background:var(--panel); }
+    .leaflet-popup-content button { width:auto; padding:8px 12px; }
   </style>
 </head>
 <body>
   <div id="map"></div>
 
+  <div id="header">
+    <img id="avatar" src="assets/muneco.png" alt="">
+    <div>
+      <div id="brand">E-Guinzburg</div>
+      <div id="subtitle">Conectando…</div>
+    </div>
+  </div>
+
+  <button id="recenter" disabled>Recentrar</button>
+
   <div id="panel">
-    <p id="status">Conectando…</p>
+    <p id="status">Avisá que liberás un lugar, o tocá un pin para ir a buscarlo.</p>
     <div class="actions">
       <button id="btnShare" hidden>Compartir mi ubicación</button>
-      <button id="btnLeave" hidden>Me voy</button>
+      <button id="btnLeave" hidden>Me estoy yendo</button>
       <button id="btnCancel" class="secondary" hidden>Cancelar mi espacio</button>
       <div id="gate" hidden class="actions">
-        <input id="code" type="text" autocomplete="off" autocapitalize="characters" placeholder="Código de acceso"
-          style="font:inherit; padding:12px; border-radius:10px; border:1px solid #8886; background:transparent; color:var(--fg); text-transform:uppercase;">
+        <input id="code" type="text" autocomplete="off" autocapitalize="characters" placeholder="Código de acceso">
         <button id="btnJoin">Entrar</button>
       </div>
     </div>
@@ -92,19 +118,23 @@
     // ---- Configuración ----
     const SUPABASE_URL = 'https://thbiaafcyuzupxbhpqab.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_sFmYrnVlogUeuOTpfGI4jQ_Xs_NC29S';
-    const LEAVE_WINDOW_MS = 4 * 60 * 1000;   // ventana de 4 minutos
-    const POSITION_SEND_MS = 10 * 1000;      // cada cuánto mandamos la posición
+    const POSITION_SEND_MS = 10 * 1000;   // cada cuánto mandamos la posición
+    const ROUTE_URL = 'https://router.project-osrm.org/route/v1/driving';
 
     const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     // ---- Estado ----
-    let me = null;            // usuario anónimo
-    let myPos = null;         // {lat, lng} exacto (solo local)
+    let me = null;             // usuario anónimo
+    let myPos = null;          // {lat, lng} exacto (solo local)
     let watchId = null;
     let lastSent = 0;
-    let serverOffset = 0;     // hora servidor - hora local
-    let spots = [];           // espacios visibles (RLS filtra)
-    const markers = new Map(); // spot.id -> {marker, spot}
+    let serverOffset = 0;      // hora servidor - hora local
+    let spots = [];            // espacios visibles (RLS filtra)
+    const markers = new Map(); // spot.id -> {marker, circle, spot}
+    let routeLayer = null;
+    let routeInfo = '';
+    let myMarker = null;
+    let centered = false;
 
     // ---- Helpers ----
     const $ = (id) => document.getElementById(id);
@@ -117,12 +147,15 @@
     $('overlayOk').onclick = () => $('overlay').classList.remove('show');
 
     // ---- Mapa ----
-    const map = L.map('map').setView([-34.6037, -58.3816], 15);
+    const map = L.map('map', { zoomControl: false }).setView([-34.6037, -58.3816], 15);
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19, attribution: '&copy; OpenStreetMap'
     }).addTo(map);
-    let myMarker = null;
-    let centered = false;
+
+    $('recenter').onclick = () => {
+      if (!myPos) return showOverlay('Compartí tu ubicación para recentrar el mapa.');
+      map.setView([myPos.lat, myPos.lng], 17);
+    };
 
     // ---- Sesión ----
     async function init() {
@@ -139,6 +172,7 @@
 
     // ---- Código de acceso ----
     function showGate() {
+      $('subtitle').textContent = 'Acceso restringido';
       $('status').textContent = 'Ingresá el código de acceso para entrar.';
       $('gate').hidden = false;
       $('btnShare').hidden = true;
@@ -158,11 +192,12 @@
 
     async function start() {
       $('btnShare').hidden = false;
+      $('subtitle').textContent = 'Sin ubicación';
       $('status').textContent = 'Compartí tu ubicación para empezar.';
       await syncServerClock();
       await refresh();
       subscribe();
-      setInterval(refresh, 10000);      // respaldo por si se pierde un evento en tiempo real
+      setInterval(refresh, 10000);   // respaldo por si se pierde un evento en tiempo real
       setInterval(tick, 1000);
     }
 
@@ -179,8 +214,7 @@
       watchId = navigator.geolocation.watchPosition(onPos, onGeoErr,
         { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 });
       $('btnShare').hidden = true;
-      $('btnLeave').hidden = false;
-      $('status').textContent = 'Buscando tu ubicación…';
+      $('subtitle').textContent = 'Buscando tu ubicación…';
     };
 
     function onGeoErr(e) {
@@ -190,7 +224,9 @@
     async function onPos(p) {
       myPos = { lat: p.coords.latitude, lng: p.coords.longitude };
       if (!myMarker) {
-        myMarker = L.circleMarker([myPos.lat, myPos.lng], { radius: 8, color: '#3fd3ff', fillColor: '#1f3cff', fillOpacity: 1, weight: 2 }).addTo(map);
+        myMarker = L.circleMarker([myPos.lat, myPos.lng], {
+          radius: 8, color: '#3fd3ff', fillColor: '#1f3cff', fillOpacity: 1, weight: 2
+        }).addTo(map);
       } else {
         myMarker.setLatLng([myPos.lat, myPos.lng]);
       }
@@ -201,10 +237,10 @@
         await sb.rpc('update_position', { p_lat: myPos.lat, p_lng: myPos.lng });
         await refresh();   // si me moví más de 30 m, mi espacio pudo cancelarse
       }
-      if (!mine()) $('status').textContent = 'Listo. Si te vas, tocá "Me voy".';
+      updatePanel();
     }
 
-    // ---- Me voy / cancelar ----
+    // ---- Me estoy yendo / cancelar ----
     $('btnLeave').onclick = async () => {
       if (!myPos) return showOverlay('Todavía no tenemos tu ubicación.');
       $('btnLeave').disabled = true;
@@ -220,6 +256,35 @@
       await refresh();
     };
 
+    // ---- Ruta ----
+    async function drawRoute(to) {
+      if (!myPos) return showOverlay('Compartí tu ubicación para ver la ruta.');
+      const url = `${ROUTE_URL}/${myPos.lng},${myPos.lat};${to.lng},${to.lat}?overview=full&geometries=geojson`;
+      try {
+        const res = await fetch(url);
+        const json = await res.json();
+        if (!json.routes || !json.routes[0]) return showOverlay('No encontramos una ruta hasta ese punto.');
+        const route = json.routes[0];
+        if (routeLayer) routeLayer.remove();
+        routeLayer = L.geoJSON(route.geometry, {
+          style: { color: '#3fd3ff', weight: 5, opacity: 0.85, dashArray: '6 8' }
+        }).addTo(map);
+        map.fitBounds(routeLayer.getBounds(), { padding: [40, 160] });
+        const km = route.distance / 1000;
+        const dist = km >= 1 ? `${km.toFixed(1)} km` : `${Math.round(route.distance)} m`;
+        const mins = Math.max(1, Math.round(route.duration / 60));
+        routeInfo = `A ${dist} · ${mins} min en auto`;
+        updatePanel();
+      } catch (e) {
+        showOverlay('No pudimos calcular la ruta. Probá de nuevo.');
+      }
+    }
+
+    function clearRoute() {
+      if (routeLayer) { routeLayer.remove(); routeLayer = null; }
+      routeInfo = '';
+    }
+
     // ---- Aceptar ----
     async function accept(id) {
       const { data, error } = await sb.rpc('accept_spot', { p_spot: id });
@@ -229,11 +294,13 @@
           : 'No se pudo aceptar: ' + error.message;
         return showOverlay(msg);
       }
+      clearRoute();
       const exact = data && data[0];
       if (exact) {
-        L.marker([exact.out_lat, exact.out_lng]).addTo(map).bindPopup('Espacio aceptado').openPopup();
-        map.setView([exact.out_lat, exact.out_lng], 18);
-        showOverlay('Aceptaste el espacio. Dirigite al punto marcado.');
+        const to = { lat: exact.out_lat, lng: exact.out_lng };
+        L.marker([to.lat, to.lng]).addTo(map).bindPopup('Espacio aceptado').openPopup();
+        showOverlay('Aceptaste el espacio. Seguí la ruta.');
+        await drawRoute(to);
       }
       await refresh();
     }
@@ -264,16 +331,20 @@
           className: 'ring-pulse'
         }).addTo(map);
         const marker = L.marker([s.approx_lat, s.approx_lng], {
-          icon: L.divIcon({ className: '', iconSize: null,
-            html: '<div class="meet"><img src="assets/muneco.png" alt="E-Guinzburg"><div class="lbl">Libre · <span class="cd"></span></div></div>' })
+          icon: L.divIcon({
+            className: '', iconSize: null,
+            html: '<div class="meet"><img src="assets/muneco.png" alt="E-Guinzburg"><div class="lbl">Libre · <span class="cd"></span></div></div>'
+          })
         }).addTo(map);
 
+        // Tocar el pin traza la ruta; el botón de la burbuja acepta el espacio
         const el = document.createElement('div');
         const btn = document.createElement('button');
         btn.textContent = 'Aceptar espacio';
         btn.onclick = () => { marker.closePopup(); accept(s.id); };
         el.appendChild(btn);
         marker.bindPopup(el);
+        marker.on('click', () => drawRoute({ lat: s.approx_lat, lng: s.approx_lng }));
 
         markers.set(s.id, { marker, circle, spot: s });
       }
@@ -295,19 +366,34 @@
       if (mySpot) {
         const left = Date.parse(mySpot.expires_at) - now();
         if (left <= 0) { refresh(); return; }
-        $('status').innerHTML = `Esperando a otro conductor. Tu espacio se libera en <strong>${fmt(left)}</strong>.`;
+        $('subtitle').textContent = `Esperando · ${fmt(left)}`;
       }
     }
 
     function updatePanel() {
-      const mySpot = mine();
-      $('btnLeave').hidden = !myPos || !!mySpot || watchId === null;
-      $('btnCancel').hidden = !mySpot;
-      if (!mySpot && watchId !== null && myPos) {
-        const libres = spots.filter(s => s.owner_id !== me.id).length;
-        $('status').textContent = libres
-          ? `Hay ${libres} espacio${libres > 1 ? 's' : ''} libre${libres > 1 ? 's' : ''}. Tocá uno en el mapa para aceptarlo.`
-          : 'Listo. Si te vas, tocá "Me voy".';
+      const ms = mine();
+      const ready = !!myPos && watchId !== null;
+      $('btnShare').hidden = watchId !== null;
+      $('btnLeave').hidden = !ready || !!ms;
+      $('btnCancel').hidden = !ms;
+      $('recenter').disabled = !myPos;
+
+      const libres = spots.filter(s => s.owner_id !== me?.id).length;
+
+      if (ms) {
+        $('status').textContent = 'Si te movés más de 30 m, tu espacio se cancela.';
+      } else if (routeInfo) {
+        $('status').textContent = routeInfo;
+      } else if (libres) {
+        $('status').textContent = 'Tocá un pin para ver la ruta y aceptarlo.';
+      } else {
+        $('status').textContent = 'Avisá que liberás un lugar, o tocá un pin para ir a buscarlo.';
+      }
+
+      if (!ms) {
+        $('subtitle').textContent = !ready
+          ? 'Sin ubicación'
+          : (libres ? `${libres} libre${libres > 1 ? 's' : ''} cerca` : 'Sin espacios libres');
       }
     }
 
