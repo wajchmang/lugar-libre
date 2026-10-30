@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lugar libre · beta</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <style>
+    :root { --bg:#f5f5f2; --fg:#111; --muted:#666; --accent:#0a6cff; --warn:#e67e00; }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) { --bg:#111; --fg:#f2f2f2; --muted:#9a9a9a; }
+    }
+    :root[data-theme="dark"] { --bg:#111; --fg:#f2f2f2; --muted:#9a9a9a; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg);
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+    #map { position: fixed; inset: 0; }
+    #panel { position: fixed; left: 0; right: 0; bottom: 0; z-index: 1000; padding: 16px;
+      background: var(--bg); border-radius: 16px 16px 0 0; box-shadow: 0 -4px 16px #0003; }
+    #status { margin: 0 0 12px; font-size: 15px; color: var(--muted); }
+    #status strong { color: var(--fg); }
+    .actions { display: grid; gap: 8px; }
+    button { font: inherit; font-weight: 600; width: 100%; padding: 12px 16px; border: 0;
+      border-radius: 10px; background: var(--accent); color: #fff; cursor: pointer; }
+    button.secondary { background: transparent; color: var(--fg); border: 1px solid #8886; }
+    button[hidden] { display: none; }
+    button:disabled { opacity: .5; cursor: default; }
+    #overlay { position: fixed; inset: 0; z-index: 2000; background: #0008; display: none;
+      align-items: center; justify-content: center; padding: 16px; }
+    #overlay.show { display: flex; }
+    #overlay .card { background: var(--bg); color: var(--fg); padding: 20px; border-radius: 14px;
+      max-width: 340px; width: 100%; display: grid; gap: 14px; }
+    .lbl { background: var(--warn); color: #fff; font-size: 12px; font-weight: 700; padding: 4px 8px;
+      border-radius: 999px; white-space: nowrap; transform: translate(-50%, -140%); }
+    .lbl .cd { font-variant-numeric: tabular-nums; }
+    .leaflet-popup-content button { width: auto; padding: 8px 12px; }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+
+  <div id="panel">
+    <p id="status">Conectando…</p>
+    <div class="actions">
+      <button id="btnShare" hidden>Compartir mi ubicación</button>
+      <button id="btnLeave" hidden>Me voy</button>
+      <button id="btnCancel" class="secondary" hidden>Cancelar mi espacio</button>
+    </div>
+  </div>
+
+  <div id="overlay">
+    <div class="card">
+      <p id="overlayText" style="margin:0"></p>
+      <button id="overlayOk">Entendido</button>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+  <script>
+    // ---- Configuración ----
+    const SUPABASE_URL = 'https://thbiaafcyuzupxbhpqab.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_sFmYrnVlogUeuOTpfGI4jQ_Xs_NC29S';
+    const LEAVE_WINDOW_MS = 4 * 60 * 1000;   // ventana de 4 minutos
+    const POSITION_SEND_MS = 10 * 1000;      // cada cuánto mandamos la posición
+
+    const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    // ---- Estado ----
+    let me = null;            // usuario anónimo
+    let myPos = null;         // {lat, lng} exacto (solo local)
+    let watchId = null;
+    let lastSent = 0;
+    let serverOffset = 0;     // hora servidor - hora local
+    let spots = [];           // espacios visibles (RLS filtra)
+    const markers = new Map(); // spot.id -> {marker, spot}
+
+    // ---- Helpers ----
+    const $ = (id) => document.getElementById(id);
+    const now = () => Date.now() + serverOffset;
+    const fmt = (ms) => {
+      const s = Math.max(0, Math.ceil(ms / 1000));
+      return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+    };
+    function showOverlay(text) { $('overlayText').textContent = text; $('overlay').classList.add('show'); }
+    $('overlayOk').onclick = () => $('overlay').classList.remove('show');
+
+    // ---- Mapa ----
+    const map = L.map('map').setView([-34.6037, -58.3816], 15);
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19, attribution: '&copy; OpenStreetMap'
+    }).addTo(map);
+    let myMarker = null;
+    let centered = false;
+
+    // ---- Sesión ----
+    async function init() {
+      const { data: sess } = await sb.auth.getSession();
+      if (!sess.session) {
+        const { error } = await sb.auth.signInAnonymously();
+        if (error) { $('status').textContent = 'No se pudo entrar: ' + error.message; return; }
+      }
+      me = (await sb.auth.getUser()).data.user;
+      $('btnShare').hidden = false;
+      $('status').textContent = 'Compartí tu ubicación para empezar.';
+      await syncServerClock();
+      await refresh();
+      subscribe();
+      setInterval(refresh, 10000);      // respaldo por si se pierde un evento en tiempo real
+      setInterval(tick, 1000);
+    }
+
+    async function syncServerClock() {
+      const t0 = Date.now();
+      const { data } = await sb.rpc('server_now');
+      const t1 = Date.now();
+      if (data) serverOffset = Date.parse(data) - (t0 + t1) / 2;
+    }
+
+    // ---- Ubicación (solo con permiso) ----
+    $('btnShare').onclick = () => {
+      if (!navigator.geolocation) return showOverlay('Tu navegador no permite compartir ubicación.');
+      watchId = navigator.geolocation.watchPosition(onPos, onGeoErr,
+        { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 });
+      $('btnShare').hidden = true;
+      $('btnLeave').hidden = false;
+      $('status').textContent = 'Buscando tu ubicación…';
+    };
+
+    function onGeoErr(e) {
+      showOverlay('No pudimos obtener tu ubicación: ' + e.message + '. Revisá el permiso del navegador.');
+    }
+
+    async function onPos(p) {
+      myPos = { lat: p.coords.latitude, lng: p.coords.longitude };
+      if (!myMarker) {
+        myMarker = L.circleMarker([myPos.lat, myPos.lng], { radius: 8, color: '#0a6cff', fillOpacity: 1 }).addTo(map);
+      } else {
+        myMarker.setLatLng([myPos.lat, myPos.lng]);
+      }
+      if (!centered) { map.setView([myPos.lat, myPos.lng], 17); centered = true; }
+
+      if (Date.now() - lastSent > POSITION_SEND_MS) {
+        lastSent = Date.now();
+        await sb.rpc('update_position', { p_lat: myPos.lat, p_lng: myPos.lng });
+        await refresh();   // si me moví más de 30 m, mi espacio pudo cancelarse
+      }
+      if (!mine()) $('status').textContent = 'Listo. Si te vas, tocá "Me voy".';
+    }
+
+    // ---- Me voy / cancelar ----
+    $('btnLeave').onclick = async () => {
+      if (!myPos) return showOverlay('Todavía no tenemos tu ubicación.');
+      $('btnLeave').disabled = true;
+      const { error } = await sb.rpc('release_spot', { p_lat: myPos.lat, p_lng: myPos.lng });
+      $('btnLeave').disabled = false;
+      if (error) return showOverlay('No se pudo liberar el espacio: ' + error.message);
+      lastSent = Date.now();
+      await refresh();
+    };
+
+    $('btnCancel').onclick = async () => {
+      await sb.rpc('cancel_my_spot');
+      await refresh();
+    };
+
+    // ---- Aceptar ----
+    async function accept(id) {
+      const { data, error } = await sb.rpc('accept_spot', { p_spot: id });
+      if (error) {
+        const msg = error.message.includes('spot_unavailable')
+          ? 'Ese espacio ya no está disponible.'
+          : 'No se pudo aceptar: ' + error.message;
+        return showOverlay(msg);
+      }
+      const exact = data && data[0];
+      if (exact) {
+        L.marker([exact.out_lat, exact.out_lng]).addTo(map).bindPopup('Espacio aceptado').openPopup();
+        map.setView([exact.out_lat, exact.out_lng], 18);
+        showOverlay('Aceptaste el espacio. Dirigite al punto marcado.');
+      }
+      await refresh();
+    }
+
+    // ---- Datos ----
+    function mine() {
+      return spots.find(s => s.owner_id === me?.id && s.status === 'released' && Date.parse(s.expires_at) > now());
+    }
+
+    async function refresh() {
+      if (!me) return;
+      const { data, error } = await sb.from('spots').select('*').order('released_at', { ascending: false });
+      if (error) return;
+      spots = data.filter(s => s.status === 'released' && Date.parse(s.expires_at) > now());
+      render();
+      updatePanel();
+    }
+
+    function render() {
+      const keep = new Set();
+      for (const s of spots) {
+        if (s.owner_id === me.id) continue;
+        keep.add(s.id);
+        if (markers.has(s.id)) { markers.get(s.id).spot = s; continue; }
+
+        const circle = L.circle([s.approx_lat, s.approx_lng], {
+          radius: 100, color: '#e67e00', weight: 2, fillOpacity: 0.15
+        }).addTo(map);
+        const marker = L.marker([s.approx_lat, s.approx_lng], {
+          icon: L.divIcon({ className: '', html: '<div class="lbl">Libre · <span class="cd"></span></div>', iconSize: null })
+        }).addTo(map);
+
+        const el = document.createElement('div');
+        const btn = document.createElement('button');
+        btn.textContent = 'Aceptar espacio';
+        btn.onclick = () => { marker.closePopup(); accept(s.id); };
+        el.appendChild(btn);
+        marker.bindPopup(el);
+
+        markers.set(s.id, { marker, circle, spot: s });
+      }
+      for (const [id, m] of markers) {
+        if (!keep.has(id)) { m.marker.remove(); m.circle.remove(); markers.delete(id); }
+      }
+      tick();
+    }
+
+    function tick() {
+      // cuenta regresiva en cada espacio
+      for (const [, m] of markers) {
+        const left = Date.parse(m.spot.expires_at) - now();
+        const cd = m.marker.getElement()?.querySelector('.cd');
+        if (cd) cd.textContent = fmt(left);
+        if (left <= 0) { refresh(); return; }
+      }
+      const mySpot = mine();
+      if (mySpot) {
+        const left = Date.parse(mySpot.expires_at) - now();
+        if (left <= 0) { refresh(); return; }
+        $('status').innerHTML = `Esperando a otro conductor. Tu espacio se libera en <strong>${fmt(left)}</strong>.`;
+      }
+    }
+
+    function updatePanel() {
+      const mySpot = mine();
+      $('btnLeave').hidden = !myPos || !!mySpot || watchId === null;
+      $('btnCancel').hidden = !mySpot;
+      if (!mySpot && watchId !== null && myPos) {
+        const libres = spots.filter(s => s.owner_id !== me.id).length;
+        $('status').textContent = libres
+          ? `Hay ${libres} espacio${libres > 1 ? 's' : ''} libre${libres > 1 ? 's' : ''}. Tocá uno en el mapa para aceptarlo.`
+          : 'Listo. Si te vas, tocá "Me voy".';
+      }
+    }
+
+    // ---- Tiempo real ----
+    function subscribe() {
+      sb.channel('spots-live')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'spots' }, () => refresh())
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'spots', filter: `owner_id=eq.${me.id}` }, (payload) => {
+          if (payload.new.status === 'accepted') {
+            showOverlay('Alguien aceptó tu espacio. ¡Ya es suyo!');
+          }
+          refresh();
+        })
+        .subscribe();
+    }
+
+    init();
+  </script>
+</body>
+</html>
