@@ -17,12 +17,12 @@
     #status { letter-spacing: .02em; }
     #status strong { font-variant-numeric: tabular-nums; color: var(--cyan); font-weight: 800; }
     .leaflet-container { background: #05070d; }
-    .leaflet-tile-pane { filter: sepia(1) hue-rotate(185deg) saturate(3.5) brightness(.8) contrast(1.25); }
+    .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(.6) contrast(1.15) sepia(.6) hue-rotate(170deg) saturate(2); }
     * { box-sizing: border-box; }
     html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg);
       font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
     #map { position: fixed; inset: 0; }
-    #panel { position: fixed; left: 0; right: 0; bottom: 0; z-index: 1000; padding: 16px;
+    #panel { position: fixed; left: 0; right: 0; bottom: var(--gap-bottom); z-index: 1000; padding: 16px;
       background: var(--bg); border-radius: 16px 16px 0 0; box-shadow: 0 -4px 16px #0003; }
     #status { margin: 0 0 12px; font-size: 15px; color: var(--muted); }
     #status strong { color: var(--fg); }
@@ -118,8 +118,8 @@
 
     // ---- Mapa ----
     const map = L.map('map').setView([-34.6037, -58.3816], 15);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png', {
-      subdomains: 'abcd', maxZoom: 19, attribution: '&copy; OpenStreetMap &copy; CARTO'
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19, attribution: '&copy; OpenStreetMap'
     }).addTo(map);
     let myMarker = null;
     let centered = false;
