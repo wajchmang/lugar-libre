@@ -11,11 +11,13 @@
     /* Opción A · Radar nocturno (E-GUINZBURG) */
     :root { --bg:#05070d; --fg:#f2f5ff; --muted:#8a93a6; --accent:#1f3cff; --cyan:#3fd3ff; --panel:#0a0f1ae6; }
     html, body { font-family: "Montserrat", system-ui, sans-serif; }
-    #panel { background: var(--panel); backdrop-filter: blur(8px); border-top: 1px solid #3fd3ff55; box-shadow: 0 -8px 30px #1f3cff33; }
+    /* Dejar espacio para el badge de Netlify (quitar --gap-bottom cuando haya dominio propio) */
+    :root { --gap-bottom: 72px; }
+    #panel { bottom: var(--gap-bottom); background: var(--panel); backdrop-filter: blur(8px); border-top: 1px solid #3fd3ff55; box-shadow: 0 -8px 30px #1f3cff33; }
     #status { letter-spacing: .02em; }
     #status strong { font-variant-numeric: tabular-nums; color: var(--cyan); font-weight: 800; }
     .leaflet-container { background: #05070d; }
-    .leaflet-tile { filter: invert(1) hue-rotate(180deg) brightness(.55) contrast(1.15) saturate(.6); }
+    .leaflet-tile-pane { filter: sepia(1) hue-rotate(185deg) saturate(3.5) brightness(.8) contrast(1.25); }
     * { box-sizing: border-box; }
     html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg);
       font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
@@ -107,8 +109,8 @@
 
     // ---- Mapa ----
     const map = L.map('map').setView([-34.6037, -58.3816], 15);
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19, attribution: '&copy; OpenStreetMap'
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png', {
+      subdomains: 'abcd', maxZoom: 19, attribution: '&copy; OpenStreetMap &copy; CARTO'
     }).addTo(map);
     let myMarker = null;
     let centered = false;
